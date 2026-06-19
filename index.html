@@ -362,8 +362,8 @@ function save(db){localStorage.setItem(KEY,JSON.stringify(db||DB));schedulePush(
    Leave blank to run purely locally (data stays in this browser).
    Full setup steps are in SETUP.md.
 =================================================================== */
-const CLOUD_URL="";        // <-- paste your Supabase Project URL  (e.g. https://abcd1234.supabase.co)
-const CLOUD_ANON_KEY="";   // <-- paste your Supabase anon public key
+const CLOUD_URL="https://fxinwlthrkaumuoclmik.supabase.co";        // Supabase Project URL (Event-Expenses)
+const CLOUD_ANON_KEY="sb_publishable_AvlOP9Fnt5VRam_1RUOb1g_BP5seoPw";   // Supabase publishable (anon) key
 const CLOUD_TABLE="app_state", CLOUD_ROW="main";
 let sb=null, cloudOn=false, applyingRemote=false, pushTimer=null;
 function cloudConfigured(){return !!(CLOUD_URL && CLOUD_ANON_KEY && typeof supabase!=="undefined");}
