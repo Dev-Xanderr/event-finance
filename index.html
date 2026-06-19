@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Finance — Budget, Expenses &amp; Revenue (AED)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f6f7f9;--card:#ffffff;--ink:#1d2430;--muted:#6b7480;--line:#e6e9ee;
+  --brand:#2f6df6;--brand-soft:#eaf1ff;--green:#1f9d63;--green-soft:#e7f6ee;
+  --amber:#c8870c;--amber-soft:#fdf3df;--red:#d2443b;--red-soft:#fdecea;
+  --purple:#7c5cff;--purple-soft:#efeaff;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:22px 20px 70px}
+h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em}
+h2{font-size:15px;margin:0 0 12px;font-weight:650}
+.sub{color:var(--muted);font-size:13px;margin-top:3px}
+.badge{display:inline-block;font-size:11px;font-weight:650;padding:2px 9px;border-radius:99px;vertical-align:middle}
+.badge.cost{background:var(--purple-soft);color:var(--purple)}
+.badge.profit{background:var(--brand-soft);color:var(--brand)}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,input,textarea{font-family:inherit;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none}
+select:focus,input:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+select:disabled,input:disabled{background:#f1f3f6;color:var(--muted)}
+button{font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 12px;transition:.12s}
+button:hover{background:#f1f3f6}
+button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+button.primary:hover{background:#205fe0}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+button.ghost:hover{background:#eef0f3;color:var(--ink)}
+button.danger{color:var(--red);border-color:transparent;background:transparent}
+button.danger:hover{background:var(--red-soft)}
+.back{background:transparent;border:none;color:var(--muted);padding:4px 0;margin-bottom:8px;font-weight:600}
+.back:hover{background:transparent;color:var(--brand)}
+.filterbar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;background:#eef0f3;padding:4px;border-radius:10px;width:max-content;flex-wrap:wrap}
+.tabs button{background:transparent;border:none;color:var(--muted);padding:7px 16px;border-radius:7px;font-weight:600}
+.tabs button.active{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+.kpi .label{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.kpi .val{font-size:23px;font-weight:700;margin-top:6px;letter-spacing:-.01em}
+.kpi .meta{font-size:12px;color:var(--muted);margin-top:4px}
+.val.good{color:var(--green)}.val.bad{color:var(--red)}.val.rev{color:var(--green)}
+.bar{height:7px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:12px}
+.bar > i{display:block;height:100%;border-radius:99px;background:var(--brand)}
+.grid2{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;margin-bottom:20px}
+.chart-box{position:relative;height:280px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 0 14px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:650}
+th[data-sort]{cursor:pointer;user-select:none}
+th[data-sort]:hover{color:var(--ink)}
+th .arrow{font-size:9px;margin-left:3px;opacity:.6}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:hover{background:#fafbfc}
+tr.clickable{cursor:pointer}
+tr.clickable:hover{background:var(--brand-soft)}
+tr.cat-row td{background:#f3f5f8;font-weight:650;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
+.pill{display:inline-block;font-size:11px;font-weight:650;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.pill.paid{background:var(--green-soft);color:var(--green)}
+.pill.partial{background:var(--amber-soft);color:var(--amber)}
+.pill.unpaid{background:var(--red-soft);color:var(--red)}
+.pill.novat{background:#eef0f3;color:var(--muted)}
+.over{color:var(--red);font-weight:650}
+.under{color:var(--green)}
+.empty{text-align:center;color:var(--muted);padding:34px 10px;font-size:13px}
+.row-actions{display:flex;gap:2px;justify-content:flex-end}
+.dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+.sdot{width:8px;height:8px;border-radius:99px;display:inline-block;margin-right:7px;vertical-align:middle}
+.sdot.partial{background:var(--amber)}.sdot.unpaid{background:var(--red)}.sdot.paid{background:var(--green)}
+.modal-bg{position:fixed;inset:0;background:rgba(16,24,40,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border-radius:14px;width:100%;max-width:520px;box-shadow:0 20px 50px rgba(16,24,40,.25);max-height:92vh;overflow:auto}
+.modal header{padding:18px 20px;border-bottom:1px solid var(--line);font-weight:700;font-size:16px}
+.modal .body{padding:18px 20px;display:grid;gap:13px}
+.modal footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.field{display:grid;gap:5px}
+.field label{font-size:12px;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
+.vatrow{display:grid;grid-template-columns:1fr 96px;gap:8px;align-items:end}
+.tag{font-size:12px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.flagbox{display:flex;align-items:center;gap:9px;border-radius:9px;padding:10px 12px;background:var(--purple-soft);border:1px solid #ddd4ff}
+.flagbox input{width:auto}
+.calc{background:#f3f5f8;border-radius:9px;padding:11px 13px;font-size:13px;display:grid;gap:4px}
+.calc div{display:flex;justify-content:space-between}
+.calc b{font-variant-numeric:tabular-nums}
+.foot-note{color:var(--muted);font-size:12px;margin-top:26px;text-align:center}
+.hide{display:none!important}
+.ratebar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.ratebar input{width:64px;text-align:right}
+.note-banner{background:var(--purple-soft);border:1px solid #ddd4ff;color:#4a3aa0;border-radius:10px;padding:11px 14px;font-size:13px;margin-bottom:18px}
+@media(max-width:980px){.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="syncPill" title="Data sync status" style="position:fixed;top:10px;right:14px;z-index:60;font-size:11px;font-weight:700;padding:4px 11px;border-radius:99px;background:#eef0f3;color:#6b7480;box-shadow:0 1px 2px rgba(16,24,40,.12)">Local only</div>
+<div class="wrap">
+
+  <!-- ===================== PORTFOLIO ===================== -->
+  <div id="portfolio">
+    <div class="topbar">
+      <div><h1>Events</h1><div class="sub" id="pSub">Your event portfolio — pick an event to manage its finances.</div></div>
+      <div class="controls"><button id="newEventBtn" class="primary">+ New event</button></div>
+    </div>
+    <div class="filterbar">
+      <span class="tag">Period</span>
+      <div class="tabs">
+        <button class="active" data-p="all">All time</button>
+        <button data-p="year">Year</button>
+        <button data-p="month">Month</button>
+      </div>
+      <select id="pPeriodSel" class="hide" style="min-width:120px"></select>
+    </div>
+    <div class="cards" id="pKpis"></div>
+    <div class="card" style="margin-bottom:20px">
+      <h2>Revenue vs. expenses by event</h2>
+      <div class="chart-box"><canvas id="pChart"></canvas></div>
+      <div class="legend"><span><i class="dot" style="background:var(--green)"></i>Revenue</span><span><i class="dot" style="background:var(--red)"></i>Expenses</span></div>
+    </div>
+    <div class="card">
+      <div class="section-head"><h2 style="margin:0">All events</h2><button id="pExport" class="ghost">Export CSV</button></div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr>
+          <th data-sort="name">Event</th><th data-sort="date">Date</th><th>Type</th>
+          <th class="num" data-sort="revenue">Revenue</th><th class="num" data-sort="expenses">Expenses</th><th class="num" data-sort="net">Net</th>
+          <th class="num" data-sort="outstanding">Unpaid</th><th></th>
+        </tr></thead>
+        <tbody id="pBody"></tbody><tfoot id="pFoot"></tfoot>
+      </table></div>
+      <div class="legend"><span><span class="sdot unpaid"></span>has unpaid lines</span><span><span class="sdot partial"></span>has partial payments</span></div>
+    </div>
+  </div>
+
+  <!-- ===================== EVENT ===================== -->
+  <div id="eventView" class="hide">
+    <button class="back" id="backBtn">← All events</button>
+    <div class="topbar">
+      <div><h1 id="eName"></h1><div class="sub" id="eMeta"></div></div>
+      <div class="controls"><button id="eEdit">⚙ Edit event</button></div>
+    </div>
+    <div id="eCostBanner" class="note-banner hide"></div>
+    <div class="cards" id="eKpis"></div>
+    <div class="tabs" style="margin-bottom:18px">
+      <button data-et="summary" class="active">Summary</button>
+      <button data-et="expenses">Expenses</button>
+      <button data-et="revenue">Revenue</button>
+      <button data-et="budget">Budget</button>
+    </div>
+
+    <!-- Summary -->
+    <div id="et-summary">
+      <div class="grid2">
+        <div class="card">
+          <h2 id="chartTitle">Spend by category</h2>
+          <div class="chart-box"><canvas id="catChart"></canvas></div>
+          <div class="legend" id="catLegend"></div>
+        </div>
+        <div class="card">
+          <h2>Money in vs. out</h2>
+          <div class="chart-box"><canvas id="ioChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head"><h2 style="margin:0" id="cmpTitle">By category</h2>
+          <button id="exportCmpBtn" class="ghost">Export CSV</button></div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Category</th><th class="num" id="thBudget">Budget</th><th class="num">Actual (incl. VAT)</th><th class="num" id="thVar">Variance</th><th class="num" id="thPct">% used</th></tr></thead>
+          <tbody id="cmpBody"></tbody><tfoot id="cmpFoot"></tfoot>
+        </table></div>
+        <div class="legend"><span><span class="sdot unpaid"></span>category has unpaid lines</span><span><span class="sdot partial"></span>has partial payments</span></div>
+      </div>
+    </div>
+
+    <!-- Expenses -->
+    <div id="et-expenses" class="hide">
+      <div class="card">
+        <div class="section-head">
+          <div><h2 style="margin:0">Expense invoice log</h2>
+            <div class="ratebar" style="margin-top:6px"><span>Standard VAT rate</span><input id="vatRate" type="number" min="0" step="0.5"> <span>%</span><span class="tag">· default for new lines</span></div>
+          </div>
+          <div style="display:flex;gap:8px"><button id="exportExpBtn" class="ghost">Export CSV</button><button id="addExpBtn" class="primary">+ Add expense</button></div>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Date</th><th>Vendor</th><th>Invoice&nbsp;#</th><th>Description</th><th>Category</th>
+            <th class="num">Qty</th><th class="num">Unit (AED)</th><th class="num">Sub-total</th><th class="num">VAT</th><th class="num">Total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="expBody"></tbody><tfoot id="expFoot"></tfoot>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- Revenue -->
+    <div id="et-revenue" class="hide">
+      <div class="card">
+        <div class="section-head"><h2 style="margin:0">Revenue / income log</h2>
+          <div style="display:flex;gap:8px"><button id="exportRevBtn" class="ghost">Export CSV</button><button id="addRevBtn" class="primary">+ Add revenue</button></div>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Date</th><th>Source</th><th>Reference</th><th>Description</th>
+            <th class="num">Net</th><th class="num">VAT</th><th class="num">Total (gross)</th><th>Status</th><th></th></tr></thead>
+          <tbody id="revBody"></tbody><tfoot id="revFoot"></tfoot>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- Budget -->
+    <div id="et-budget" class="hide">
+      <div class="card">
+        <div class="section-head"><h2 style="margin:0">Planned budget</h2><button id="addBudBtn" class="primary">+ Add budget line</button></div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Category</th><th>Item / note</th><th class="num">Budgeted (AED)</th><th></th></tr></thead>
+          <tbody id="budBody"></tbody><tfoot id="budFoot"></tfoot>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-note">All figures in AED. Data is saved locally in your browser and persists across sessions. Use “Export CSV” to back up or share.</div>
+</div>
+
+<!-- Event modal -->
+<div class="modal-bg" id="eventModal"><div class="modal">
+  <header id="eventModalTitle">New event</header>
+  <div class="body">
+    <div class="field"><label>Event name</label><input id="evName" placeholder="e.g. Ice Cream Run"></div>
+    <div class="two"><div class="field"><label>Date</label><input id="evDate" type="date"></div>
+      <div class="field"><label>Location</label><input id="evLoc" placeholder="City / venue"></div></div>
+    <div class="field"><label>Standard VAT rate (%)</label><input id="evVat" type="number" min="0" step="0.5" placeholder="5"></div>
+    <div class="flagbox"><input id="evCost" type="checkbox">
+      <label for="evCost" style="margin:0;font-weight:600;color:var(--ink);cursor:pointer">Not a profit-making event<div class="tag" style="font-weight:400">Brand / community event — net is shown as cost, not profit or loss</div></label></div>
+    <div class="field"><label>Notes</label><textarea id="evNotes" rows="2" placeholder="Optional"></textarea></div>
+  </div>
+  <footer><button class="danger" id="evDelete" style="margin-right:auto">Delete event</button>
+    <button class="ghost" data-close>Cancel</button><button class="primary" id="evSave">Save</button></footer>
+</div></div>
+
+<!-- Expense modal -->
+<div class="modal-bg" id="expModal"><div class="modal">
+  <header id="expModalTitle">Add expense</header>
+  <div class="body">
+    <div class="two"><div class="field"><label>Date</label><input id="xDate" type="date"></div>
+      <div class="field"><label>Category</label><select id="xCat"></select></div></div>
+    <div class="two"><div class="field"><label>Vendor</label><input id="xVendor" placeholder="e.g. Amazon.ae"></div>
+      <div class="field"><label>Invoice #</label><input id="xInv" placeholder="Optional"></div></div>
+    <div class="field"><label>Description</label><input id="xDesc" placeholder="What was purchased"></div>
+    <div class="three"><div class="field"><label>Qty</label><input id="xQty" type="number" min="0" step="1" value="1"></div>
+      <div class="field"><label>Unit price (AED)</label><input id="xUnit" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Status</label><select id="xStatus"><option value="paid">Paid</option><option value="partial">Partial</option><option value="unpaid">Unpaid</option></select></div></div>
+    <div class="vatrow"><div class="field"><label>VAT treatment</label><select id="xVatMode">
+      <option value="none">No VAT</option><option value="exclusive">Add VAT on top</option><option value="inclusive">VAT included in amount</option></select></div>
+      <div class="field"><label>Rate %</label><input id="xVatRate" type="number" min="0" step="0.5"></div></div>
+    <div class="calc" id="xCalc"></div>
+    <div class="field"><label>Notes</label><input id="xNotes" placeholder="Optional"></div>
+  </div>
+  <footer><button class="danger" id="xDelete" style="margin-right:auto">Delete</button>
+    <button class="ghost" data-close>Cancel</button><button class="primary" id="xSave">Save</button></footer>
+</div></div>
+
+<!-- Revenue modal -->
+<div class="modal-bg" id="revModal"><div class="modal">
+  <header id="revModalTitle">Add revenue</header>
+  <div class="body">
+    <div class="two"><div class="field"><label>Date</label><input id="rDate" type="date"></div>
+      <div class="field"><label>Status</label><select id="rStatus"><option value="paid">Received</option><option value="partial">Partial</option><option value="unpaid">Expected</option></select></div></div>
+    <div class="two"><div class="field"><label>Source</label><input id="rSource" placeholder="e.g. Tito, Sponsor"></div>
+      <div class="field"><label>Reference</label><input id="rRef" placeholder="Optional"></div></div>
+    <div class="field"><label>Description</label><input id="rDesc" placeholder="e.g. Ticket sales (38 × 160)"></div>
+    <div class="field"><label>Amount (AED)</label><input id="rAmount" type="number" step="0.01" placeholder="0.00"></div>
+    <div class="vatrow"><div class="field"><label>VAT treatment</label><select id="rVatMode">
+      <option value="none">No VAT</option><option value="inclusive">VAT included in amount</option><option value="exclusive">Add VAT on top</option></select></div>
+      <div class="field"><label>Rate %</label><input id="rVatRate" type="number" min="0" step="0.5"></div></div>
+    <div class="calc" id="rCalc"></div>
+    <div class="field"><label>Notes</label><input id="rNotes" placeholder="Optional"></div>
+  </div>
+  <footer><button class="danger" id="rDelete" style="margin-right:auto">Delete</button>
+    <button class="ghost" data-close>Cancel</button><button class="primary" id="rSave">Save</button></footer>
+</div></div>
+
+<!-- Budget modal -->
+<div class="modal-bg" id="budModal"><div class="modal">
+  <header id="budModalTitle">Add budget line</header>
+  <div class="body">
+    <div class="field"><label>Category</label><select id="bCat"></select></div>
+    <div class="field"><label>Item / note</label><input id="bItem" placeholder="e.g. Hydration vests"></div>
+    <div class="field"><label>Budgeted amount (AED)</label><input id="bAmount" type="number" step="0.01" placeholder="0.00"></div>
+  </div>
+  <footer><button class="danger" id="bDelete" style="margin-right:auto">Delete</button>
+    <button class="ghost" data-close>Cancel</button><button class="primary" id="bSave">Save</button></footer>
+</div></div>
+
+<script>
+const fmt = n => "AED "+new Intl.NumberFormat("en-AE",{maximumFractionDigits:0}).format(Math.round(n||0));
+const fmt2 = n => "AED "+new Intl.NumberFormat("en-AE",{minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
+const num0 = n => new Intl.NumberFormat("en-AE",{maximumFractionDigits:0}).format(Math.round(n||0));
+const shortNum = v => {const a=Math.abs(v);if(a>=1000)return (v/1000).toFixed(a>=10000?0:1)+"k";return Math.round(v).toString();};
+const CATS = ["Venue","Printing & Branding","Apparel","Equipment","Catering & Beverage","Transportation","Marketing","Platform & Fees","Taxes & VAT","Staff & Labour","Contingency","Miscellaneous"];
+const KEY = "event_budget_tracker_v3";
+const round2 = n => Math.round((n+Number.EPSILON)*100)/100;
+const pctStr = r => (Math.round(r*1000)/10)+"%";
+
+function uid(){return Math.random().toString(36).slice(2,10)}
+function exp(date,vendor,inv,cat,desc,qty,unit,vatMode,vatRate,status){return{id:uid(),date,vendor:vendor||"",inv:inv||"",cat,desc,qty:+qty,unit:+unit,vatMode:vatMode||"none",vatRate:+vatRate||0,status:status||"paid",notes:""}}
+function rev(date,source,ref,desc,amount,vatMode,vatRate,status){return{id:uid(),date,source:source||"",ref:ref||"",desc,amount:+amount||0,vatMode:vatMode||"none",vatRate:+vatRate||0,status:status||"paid",notes:""}}
+function bud(cat,item,amount){return{id:uid(),cat,item:item||"",amount:+amount||0}}
+
+function breakdown(base,rate,mode){base=+base||0;rate=+rate||0;
+  if(mode==="exclusive"){const vat=round2(base*rate);return{net:round2(base),vat,gross:round2(base+vat)};}
+  if(mode==="inclusive"){const vat=round2(base*rate/(1+rate));return{net:round2(base-vat),vat,gross:round2(base)};}
+  return{net:round2(base),vat:0,gross:round2(base)};}
+
+function seed(){
+  const ev={id:uid(),name:"Ice Cream Run",date:"2026-06-06",loc:"Dubai",vatRate:0.05,goal:"cost",
+    notes:"Ticketed community run · 38 paid tickets @ AED 160 · brand event, not for profit",budget:[],
+    expenses:[
+      exp("2026-06-09","BSYNCHRO AD (LLC)","8939","Printing & Branding","Printing on supplied SQUATWOLF backpack",50,10.5,"exclusive",0.05,"paid"),
+      exp("2026-05-23","Amazon.ae (Pananain)","403-2033424-4665146","Equipment","Hydration Running Vest Backpack",30,39.99,"none",0,"paid"),
+      exp("2026-05-23","Amazon.ae (dayantiankeji)","403-2033424-4665146","Equipment","Lightweight Breathable Hydration Vest",20,34.99,"none",0,"paid"),
+      exp("2026-05-23","Amazon.ae","403-2033424-4665146","Equipment","Shipping & handling",1,10,"none",0,"paid"),
+      exp("2026-05-23","Amazon.ae","403-2033424-4665146","Equipment","Promotion applied",1,-20,"none",0,"paid"),
+      exp("2026-06-06","Coffees","","Catering & Beverage","Drinks for all participants",57,25,"none",0,"paid"),
+      exp("2026-06-06","T-shirts","","Apparel","Event T-shirts (ticket inclusion)",38,40,"none",0,"paid"),
+      exp("2026-06-06","T-shirts","","Apparel","Athlete T-shirts (12 athletes — comp)",12,40,"none",0,"paid"),
+      exp("2026-06-06","Transportation","","Transportation","Transportation / logistics (awaiting invoice)",1,500,"none",0,"unpaid"),
+      exp("2026-06-06","FTA","","Taxes & VAT","VAT remitted on ticket sales",1,289.8,"none",0,"paid"),
+      exp("2026-06-06","Stripe / Tito","","Platform & Fees","Stripe fees (including Tito fee)",1,139.37,"none",0,"paid"),
+      exp("2026-06-06","Tito","","Platform & Fees","Tito fees paid via Stripe",1,173.93,"none",0,"paid")],
+    revenue:[rev("2026-06-04","Tito","39 orders","Event ticket sales — 39 orders (gross)",6085,"none",0,"paid")]};
+  return {events:[ev]};
+}
+
+let DB = load();
+let view = "portfolio";          // portfolio | event
+let curEventId = DB.events.length?DB.events[0].id:null;
+let eTab = "summary";
+let pMode = "all", pPeriod = null;
+let sortKey = "date", sortDir = -1;
+let catChart, ioChart, pChart;
+
+function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r&&r.events)return migrate(r);}catch(e){}const s=seed();save(s);return s;}
+function migrate(db){db.events.forEach(e=>{e.budget=e.budget||[];e.expenses=e.expenses||[];e.revenue=e.revenue||[];
+  if(!e.goal)e.goal="profit";if(e.vatRate==null)e.vatRate=0.05;const dr=e.vatRate||0.05;
+  e.expenses.forEach(x=>{if(x.vatMode===undefined){x.vatMode=x.vatable?"exclusive":"none";x.vatRate=x.vatable?dr:0;}delete x.vatable;});
+  e.revenue.forEach(r=>{if(r.vatMode===undefined){r.vatMode=r.vatable?"exclusive":"none";r.vatRate=r.vatable?dr:0;}delete r.vatable;});});return db;}
+function save(db){localStorage.setItem(KEY,JSON.stringify(db||DB));schedulePush();}
+
+/* ===================================================================
+   CLOUD SYNC (Supabase) — shared live data for you + your manager.
+   To enable: paste your Supabase Project URL and anon public key below.
+   Leave blank to run purely locally (data stays in this browser).
+   Full setup steps are in SETUP.md.
+=================================================================== */
+const CLOUD_URL="";        // <-- paste your Supabase Project URL  (e.g. https://abcd1234.supabase.co)
+const CLOUD_ANON_KEY="";   // <-- paste your Supabase anon public key
+const CLOUD_TABLE="app_state", CLOUD_ROW="main";
+let sb=null, cloudOn=false, applyingRemote=false, pushTimer=null;
+function cloudConfigured(){return !!(CLOUD_URL && CLOUD_ANON_KEY && typeof supabase!=="undefined");}
+function setSync(state){const el=document.getElementById("syncPill");if(!el)return;
+  const map={local:["Local only","#6b7480","#eef0f3"],syncing:["Syncing…","#c8870c","#fdf3df"],synced:["Synced ✓","#1f9d63","#e7f6ee"],offline:["Offline — will retry","#d2443b","#fdecea"]};
+  const v=map[state]||map.local;el.textContent=v[0];el.style.color=v[1];el.style.background=v[2];}
+function schedulePush(){if(!cloudOn||applyingRemote)return;clearTimeout(pushTimer);pushTimer=setTimeout(cloudPush,500);}
+async function cloudPush(){if(!cloudOn||applyingRemote)return;try{setSync("syncing");
+  const {error}=await sb.from(CLOUD_TABLE).upsert({id:CLOUD_ROW,data:DB,updated_at:new Date().toISOString()});
+  if(error)throw error;setSync("synced");}catch(e){console.warn("cloud push failed",e);setSync("offline");}}
+function applyRemote(data){if(!data)return;if(JSON.stringify(data)===JSON.stringify(DB))return;
+  applyingRemote=true;try{DB=migrate(data);localStorage.setItem(KEY,JSON.stringify(DB));
+  if(!document.querySelector(".modal-bg.open"))renderAll();}finally{applyingRemote=false;}setSync("synced");}
+async function cloudInit(){
+  if(!cloudConfigured()){setSync("local");return;}
+  try{sb=supabase.createClient(CLOUD_URL,CLOUD_ANON_KEY);cloudOn=true;setSync("syncing");
+    const {data,error}=await sb.from(CLOUD_TABLE).select("data").eq("id",CLOUD_ROW).maybeSingle();
+    if(error)throw error;
+    if(data&&data.data)applyRemote(data.data);else await cloudPush();
+    sb.channel("rt-"+CLOUD_ROW).on("postgres_changes",{event:"*",schema:"public",table:CLOUD_TABLE,filter:"id=eq."+CLOUD_ROW},
+      p=>{if(p.new&&p.new.data)applyRemote(p.new.data);}).subscribe();
+    setSync("synced");
+  }catch(e){console.warn("cloud init failed",e);setSync("offline");}
+}
+
+// ---- line math ----
+function eBase(e){return round2((e.qty||0)*(e.unit||0));}
+function eBd(e){return breakdown(eBase(e),e.vatRate,e.vatMode);}
+function subtotal(e){return eBd(e).net;}
+function vatOf(e){return eBd(e).vat;}
+function totalOf(e){return eBd(e).gross;}
+function rBd(r){return breakdown(r.amount,r.vatRate,r.vatMode);}
+function rNet(r){return rBd(r).net;}
+function rVat(r){return rBd(r).vat;}
+function rTot(r){return rBd(r).gross;}
+
+function yearOf(ev){return ev.date?ev.date.slice(0,4):"—";}
+function monthOf(ev){return ev.date?ev.date.slice(0,7):"—";}
+function fmtMonth(m){if(!m||m==="—")return "—";const [y,mo]=m.split("-");const n=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return (n[+mo-1]||mo)+" "+y;}
+function dlong(d){if(!d)return "—";const [y,m,da]=d.split("-");const n=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return (+da)+" "+(n[+m-1]||m)+" "+y;}
+function dmy(d){if(!d)return '<span class="tag">—</span>';const p=d.split("-");return p.length===3?`${p[2]}/${p[1]}/${p[0].slice(2)}`:d;}
+function curEvent(){return DB.events.find(e=>e.id===curEventId)||null;}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function vatTag(mode,rate){if(mode==="none"||!rate)return "";return mode==="inclusive"?`incl ${pctStr(rate)}`:`+${pctStr(rate)}`;}
+function sum(a,f){return a.reduce((x,y)=>x+f(y),0);}
+
+function eventActual(ev){return sum(ev.expenses,totalOf);}
+function eventBudget(ev){return sum(ev.budget,b=>b.amount);}
+function eventVat(ev){return sum(ev.expenses,vatOf);}
+function eventVatRev(ev){return sum(ev.revenue,rVat);}
+function eventRevenue(ev){return sum(ev.revenue,rTot);}
+function eventOutstanding(ev){return sum(ev.expenses.filter(e=>e.status!=="paid"),totalOf);}
+function eventPayStatus(ev){if(ev.expenses.some(e=>e.status==="unpaid"))return "unpaid";if(ev.expenses.some(e=>e.status==="partial"))return "partial";return "paid";}
+
+function statsFor(evs){
+  return {evs,
+    revenue:sum(evs,eventRevenue),expenses:sum(evs,eventActual),
+    vat:sum(evs,eventVat),vatRev:sum(evs,eventVatRev),budget:sum(evs,eventBudget),
+    outstanding:sum(evs,eventOutstanding),
+    hasBudget:sum(evs,eventBudget)>0,hasRevenue:sum(evs,eventRevenue)>0,
+    isCost:evs.length>0 && evs.every(e=>e.goal==="cost")};
+}
+function kpiHTML(cards){return cards.map(c=>`
+  <div class="card kpi"><div class="label">${c.label}</div><div class="val ${c.cls||""}">${c.val}</div>
+    <div class="meta">${c.meta||""}</div>
+    ${c.bar?`<div class="bar"><i style="width:${c.pct}%;background:${c.over?'var(--red)':'var(--brand)'}"></i></div>`:""}
+  </div>`).join("");}
+
+// ===== inside-bar value labels (custom plugin) =====
+const barLabel={id:"barLabel",afterDatasetsDraw(chart){
+  const ctx=chart.ctx;ctx.save();
+  ctx.font="600 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+  chart.data.datasets.forEach((ds,di)=>{
+    const meta=chart.getDatasetMeta(di);if(meta.hidden)return;
+    meta.data.forEach((bar,i)=>{
+      const v=ds.data[i];if(v==null||v===0)return;
+      const top=Math.min(bar.y,bar.base),bot=Math.max(bar.y,bar.base),h=bot-top;
+      let y,fill;
+      if(h>=18){y=(top+bot)/2;fill="#fff";}else{y=v>=0?top-8:bot+8;fill="#6b7480";}
+      ctx.fillStyle=fill;ctx.fillText(shortNum(v),bar.x,y);
+    });
+  });
+  ctx.restore();
+}};
+
+// ===== views =====
+function showView(){document.getElementById("portfolio").classList.toggle("hide",view!=="portfolio");
+  document.getElementById("eventView").classList.toggle("hide",view!=="event");}
+function openEvent(id){view="event";curEventId=id;eTab="summary";document.querySelectorAll("[data-et]").forEach(b=>b.classList.toggle("active",b.dataset.et==="summary"));
+  ["summary","expenses","revenue","budget"].forEach(t=>document.getElementById("et-"+t).classList.toggle("hide",t!=="summary"));
+  showView();renderEvent();window.scrollTo(0,0);}
+function backToPortfolio(){view="portfolio";showView();renderPortfolio();window.scrollTo(0,0);}
+
+// ===== PORTFOLIO =====
+function portfolioEvents(){
+  if(pMode==="month")return DB.events.filter(e=>monthOf(e)===pPeriod);
+  if(pMode==="year")return DB.events.filter(e=>yearOf(e)===pPeriod);
+  return DB.events;
+}
+function periodLabel(){if(pMode==="month")return fmtMonth(pPeriod);if(pMode==="year")return pPeriod||"—";return "All time";}
+function renderPFilter(){
+  document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("active",b.dataset.p===pMode));
+  const ps=document.getElementById("pPeriodSel");
+  if(pMode==="month"){const ms=[...new Set(DB.events.map(monthOf).filter(m=>m!=="—"))].sort();
+    if(!ms.includes(pPeriod))pPeriod=ms[ms.length-1]||null;
+    ps.innerHTML=ms.map(m=>`<option value="${m}">${fmtMonth(m)}</option>`).join("")||`<option>—</option>`;ps.value=pPeriod;ps.classList.remove("hide");
+  }else if(pMode==="year"){const ys=[...new Set(DB.events.map(yearOf).filter(y=>y!=="—"))].sort();
+    if(!ys.includes(pPeriod))pPeriod=ys[ys.length-1]||null;
+    ps.innerHTML=ys.map(y=>`<option value="${y}">${y}</option>`).join("")||`<option>—</option>`;ps.value=pPeriod;ps.classList.remove("hide");
+  }else ps.classList.add("hide");
+}
+function renderPortfolio(){
+  renderPFilter();
+  const evs=portfolioEvents();const s=statsFor(evs);const net=s.revenue-s.expenses;
+  document.getElementById("pSub").textContent=`${evs.length} event${evs.length!==1?"s":""} · ${periodLabel()} · tap an event to manage its finances`;
+  const cards=[
+    {label:"Events",val:String(evs.length),meta:periodLabel()},
+    {label:"Total revenue",val:fmt(s.revenue),meta:s.vatRev>0?`incl. ${fmt2(s.vatRev)} VAT`:"",cls:s.hasRevenue?"rev":""},
+    {label:"Total expenses",val:fmt(s.expenses),meta:`incl. ${fmt2(s.vat)} VAT · ${fmt(s.outstanding)} unpaid`},
+    s.isCost?{label:net>=0?"Net surplus":"Net cost",val:fmt(Math.abs(net)),meta:"not-for-profit events"}
+            :{label:net>=0?"Net profit":"Net loss",val:fmt(Math.abs(net)),meta:s.revenue?`${Math.round(net/s.revenue*100)}% margin`:"",cls:net>=0?"good":"bad"}
+  ];
+  document.getElementById("pKpis").innerHTML=kpiHTML(cards);
+  // table
+  const rows=evs.map(e=>({e,name:e.name,date:e.date||"",revenue:eventRevenue(e),expenses:eventActual(e),net:eventRevenue(e)-eventActual(e),outstanding:eventOutstanding(e),ps:eventPayStatus(e)}));
+  rows.sort((a,b)=>{let r;if(sortKey==="name")r=a.name.localeCompare(b.name);else r=(a[sortKey]||0)>(b[sortKey]||0)?1:((a[sortKey]||0)<(b[sortKey]||0)?-1:0);return r*sortDir;});
+  document.querySelectorAll("th[data-sort]").forEach(th=>{const k=th.dataset.sort;th.querySelector(".arrow")?.remove();
+    if(k===sortKey){const sp=document.createElement("span");sp.className="arrow";sp.textContent=sortDir<0?"▼":"▲";th.appendChild(sp);}});
+  const body=document.getElementById("pBody");
+  if(!rows.length){body.innerHTML=`<tr><td colspan="8" class="empty">No events in this period. Click “+ New event”.</td></tr>`;document.getElementById("pFoot").innerHTML="";}
+  else{
+    body.innerHTML=rows.map(r=>{
+      const netCls=r.e.goal==="cost"?"":(r.net>=0?"under":"over");
+      const sdot=r.ps!=="paid"?`<span class="sdot ${r.ps}"></span>`:"";
+      const typeBadge=r.e.goal==="cost"?'<span class="badge cost">Not for profit</span>':'<span class="badge profit">Revenue event</span>';
+      return `<tr class="clickable" data-open="${r.e.id}">
+        <td>${sdot}<b>${esc(r.name)}</b>${r.e.loc?`<div class="tag" style="margin-left:15px">${esc(r.e.loc)}</div>`:""}</td>
+        <td>${dlong(r.date)}</td><td>${typeBadge}</td>
+        <td class="num">${fmt(r.revenue)}</td><td class="num">${fmt(r.expenses)}</td>
+        <td class="num ${netCls}">${r.e.goal==="cost"?fmt(r.net):(r.net>=0?"+":"")+fmt(r.net)}</td>
+        <td class="num">${r.outstanding>0?`<span class="over">${fmt(r.outstanding)}</span>`:'<span class="tag">—</span>'}</td>
+        <td class="tag">›</td></tr>`;}).join("");
+    document.getElementById("pFoot").innerHTML=`<tr><td colspan="3">Total · ${periodLabel()}</td>
+      <td class="num">${fmt(s.revenue)}</td><td class="num">${fmt(s.expenses)}</td>
+      <td class="num">${net>=0&&!s.isCost?"+":""}${fmt(net)}</td><td class="num">${fmt(s.outstanding)}</td><td></td></tr>`;
+    body.querySelectorAll("[data-open]").forEach(tr=>tr.onclick=()=>openEvent(tr.dataset.open));
+  }
+  renderPChart(rows);
+}
+function renderPChart(rows){
+  const labels=rows.map(r=>r.name);
+  if(pChart)pChart.destroy();
+  pChart=new Chart(document.getElementById("pChart"),{type:"bar",
+    data:{labels,datasets:[
+      {label:"Revenue",data:rows.map(r=>r.revenue),backgroundColor:"#1f9d63",borderRadius:4,barPercentage:.78,categoryPercentage:.7},
+      {label:"Expenses",data:rows.map(r=>r.expenses),backgroundColor:"#d2443b",borderRadius:4,barPercentage:.78,categoryPercentage:.7}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:14}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.parsed.y)}`}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{ticks:{callback:v=>num0(v),font:{size:10}},grid:{color:"#eef0f3"}}}},
+    plugins:[barLabel]});
+}
+
+// ===== EVENT =====
+function renderEvent(){
+  const ev=curEvent();if(!ev){backToPortfolio();return;}
+  document.getElementById("eName").textContent=ev.name;
+  const badge=ev.goal==="cost"?'<span class="badge cost">Not for profit</span>':'<span class="badge profit">Revenue event</span>';
+  document.getElementById("eMeta").innerHTML=`${dlong(ev.date)}${ev.loc?" · "+esc(ev.loc):""} · VAT ${pctStr(ev.vatRate)} ${badge}`;
+  const banner=document.getElementById("eCostBanner");
+  if(ev.goal==="cost"){banner.classList.remove("hide");banner.innerHTML=`This event is marked <b>not for profit</b> — the net figure is the <b>cost of running it</b>, not a loss to recover.`;}
+  else banner.classList.add("hide");
+  // P&L KPIs
+  const s=statsFor([ev]);const net=s.revenue-s.expenses;
+  const cards=[
+    {label:"Revenue",val:fmt(s.revenue),meta:s.vatRev>0?`incl. ${fmt2(s.vatRev)} VAT`:(s.hasRevenue?"no VAT on income":"no revenue"),cls:s.hasRevenue?"rev":""},
+    {label:"Expenses",val:fmt(s.expenses),meta:`incl. ${fmt2(s.vat)} VAT`},
+    s.isCost?{label:net>=0?"Net surplus":"Net cost",val:fmt(Math.abs(net)),meta:"brand / community event"}
+            :{label:net>=0?"Net profit":"Net loss",val:fmt(Math.abs(net)),meta:s.revenue?`${Math.round(net/s.revenue*100)}% margin`:"no revenue yet",cls:net>=0?"good":"bad"}
+  ];
+  if(s.hasBudget){const over=s.expenses>s.budget,pct=Math.min(s.expenses/s.budget*100,140);
+    cards.push({label:over?"Over budget":"Budget left",val:fmt(Math.abs(s.budget-s.expenses)),meta:`${Math.round(s.expenses/s.budget*100)}% of ${fmt(s.budget)} used`,cls:over?"bad":"good",bar:true,pct,over});
+  }else cards.push({label:"Unpaid / outstanding",val:fmt(s.outstanding),meta:"no budget set",cls:s.outstanding>0?"":"good"});
+  document.getElementById("eKpis").innerHTML=kpiHTML(cards);
+  renderSummary();renderExpenses();renderRevenue();renderBudget();
+}
+
+function catAgg(ev){const map={};
+  ev.budget.forEach(b=>{(map[b.cat]=map[b.cat]||{budget:0,actual:0,status:"paid"}).budget+=b.amount;});
+  ev.expenses.forEach(e=>{const m=(map[e.cat]=map[e.cat]||{budget:0,actual:0,status:"paid"});m.actual+=totalOf(e);
+    if(e.status==="unpaid")m.status="unpaid";else if(e.status==="partial"&&m.status!=="unpaid")m.status="partial";});
+  return Object.entries(map).filter(([c,v])=>v.budget||v.actual);
+}
+function varCell(v){if(Math.abs(v)<0.5)return '<span class="tag">—</span>';return v<0?`<span class="over">${fmt(v)}</span>`:`<span class="under">+${fmt(v)}</span>`;}
+function renderSummary(){
+  const ev=curEvent();const s=statsFor([ev]);
+  document.getElementById("cmpTitle").textContent=s.hasBudget?"Budget vs. actual — by category":"Spend by category";
+  ["thBudget","thVar","thPct"].forEach(id=>document.getElementById(id).style.display=s.hasBudget?"":"none");
+  const rows=catAgg(ev).sort((a,b)=>b[1].actual-a[1].actual);
+  const body=document.getElementById("cmpBody");
+  if(!rows.length){body.innerHTML=`<tr><td colspan="5" class="empty">No expenses yet.</td></tr>`;document.getElementById("cmpFoot").innerHTML="";}
+  else{
+    body.innerHTML=rows.map(([c,v])=>{const va=v.budget-v.actual;const used=v.budget?Math.round(v.actual/v.budget*100):"—";
+      const dot=v.status!=="paid"?`<span class="sdot ${v.status}"></span>`:"";
+      const aCls=v.status==="unpaid"?"over":(v.status==="partial"?"":"");
+      const aStyle=v.status==="partial"?' style="color:var(--amber);font-weight:650"':"";
+      const bc=s.hasBudget?`<td class="num">${v.budget?fmt(v.budget):'<span class="tag">—</span>'}</td>`:"";
+      const vc=s.hasBudget?`<td class="num">${v.budget?varCell(va):'<span class="tag">—</span>'}</td><td class="num">${v.budget?used+"%":'<span class="tag">—</span>'}</td>`:"";
+      return `<tr><td>${dot}${esc(c)}</td>${bc}<td class="num ${aCls}"${aStyle}>${fmt(v.actual)}</td>${vc}</tr>`;}).join("");
+    const tb=sum(rows,r=>r[1].budget),ta=sum(rows,r=>r[1].actual);
+    const fb=s.hasBudget?`<td class="num">${fmt(tb)}</td>`:"";
+    const fv=s.hasBudget?`<td class="num">${varCell(tb-ta)}</td><td class="num">${tb?Math.round(ta/tb*100)+"%":"—"}</td>`:"";
+    document.getElementById("cmpFoot").innerHTML=`<tr><td>Total</td>${fb}<td class="num">${fmt(ta)}</td>${fv}</tr>`;
+  }
+  renderEventCharts(ev,s,rows);
+}
+function renderEventCharts(ev,s,rows){
+  const labels=rows.map(r=>r[0]);
+  document.getElementById("chartTitle").textContent=s.hasBudget?"Budget vs. actual by category":"Spend by category";
+  const ds=[{label:"Actual",data:rows.map(r=>r[1].actual),backgroundColor:"#2f6df6",borderRadius:4,barPercentage:.8,categoryPercentage:.72}];
+  if(s.hasBudget)ds.unshift({label:"Budget",data:rows.map(r=>r[1].budget),backgroundColor:"#9aa7b8",borderRadius:4,barPercentage:.8,categoryPercentage:.72});
+  document.getElementById("catLegend").innerHTML=s.hasBudget?
+    `<span><i class="dot" style="background:#9aa7b8"></i>Budget</span><span><i class="dot" style="background:var(--brand)"></i>Actual (incl. VAT)</span>`:
+    `<span><i class="dot" style="background:var(--brand)"></i>Actual spend (incl. VAT)</span>`;
+  if(catChart)catChart.destroy();
+  catChart=new Chart(document.getElementById("catChart"),{type:"bar",data:{labels,datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmt(c.parsed.y)}`}}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:55},grid:{display:false}},y:{ticks:{callback:v=>num0(v),font:{size:10}},grid:{color:"#eef0f3"}}}}});
+  const net=s.revenue-s.expenses;
+  if(ioChart)ioChart.destroy();
+  ioChart=new Chart(document.getElementById("ioChart"),{type:"bar",
+    data:{labels:["Revenue","Expenses",s.isCost?"Net cost":"Net"],datasets:[{data:[s.revenue,s.expenses,net],
+      backgroundColor:["#1f9d63","#d2443b",net>=0?"#2f6df6":"#c8870c"],borderRadius:5,barPercentage:.62}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16,bottom:6}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${fmt(c.parsed.y)}`}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{ticks:{callback:v=>num0(v),font:{size:10}},grid:{color:"#eef0f3"}}}},
+    plugins:[barLabel]});
+}
+
+function renderExpenses(){
+  const ev=curEvent();if(!ev)return;
+  document.getElementById("vatRate").value=(ev.vatRate||0)*100;
+  const body=document.getElementById("expBody"),foot=document.getElementById("expFoot");
+  if(!ev.expenses.length){body.innerHTML=`<tr><td colspan="12" class="empty">No expenses logged. Click “Add expense”.</td></tr>`;foot.innerHTML="";return;}
+  const sorted=[...ev.expenses].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  body.innerHTML=sorted.map(e=>{const t=vatTag(e.vatMode,e.vatRate);return `<tr>
+    <td>${dmy(e.date)}</td><td>${esc(e.vendor)||'<span class="tag">—</span>'}</td><td>${esc(e.inv)||'<span class="tag">—</span>'}</td>
+    <td>${esc(e.desc)}${e.notes?`<div class="tag">${esc(e.notes)}</div>`:""}</td><td><span class="tag">${esc(e.cat)}</span></td>
+    <td class="num">${num0(e.qty)}</td><td class="num">${fmt2(e.unit)}</td><td class="num">${fmt2(subtotal(e))}</td>
+    <td class="num">${vatOf(e)>0?fmt2(vatOf(e))+`<div class="tag">${t}</div>`:'<span class="pill novat">—</span>'}</td><td class="num"><b>${fmt2(totalOf(e))}</b></td>
+    <td><span class="pill ${e.status}">${e.status[0].toUpperCase()+e.status.slice(1)}</span></td>
+    <td><div class="row-actions"><button class="ghost" data-xedit="${e.id}" title="Edit">✎</button></div></td></tr>`;}).join("");
+  foot.innerHTML=`<tr><td colspan="7">Total expenses</td><td class="num">${fmt2(sum(ev.expenses,subtotal))}</td><td class="num">${fmt2(eventVat(ev))}</td><td class="num">${fmt2(eventActual(ev))}</td><td colspan="2"></td></tr>`;
+  body.querySelectorAll("[data-xedit]").forEach(b=>b.onclick=()=>openExp(b.dataset.xedit));
+}
+function renderRevenue(){
+  const ev=curEvent();if(!ev)return;
+  const body=document.getElementById("revBody"),foot=document.getElementById("revFoot");
+  if(!ev.revenue.length){body.innerHTML=`<tr><td colspan="9" class="empty">No revenue recorded. ${ev.goal==="cost"?"This event isn’t for profit — add income only if there was any (e.g. tickets, sponsors).":"Click “Add revenue” to log ticket sales, sponsorships, etc."}</td></tr>`;foot.innerHTML="";return;}
+  const sorted=[...ev.revenue].sort((a,b)=>(a.date||"").localeCompare(b.date||""));const sl={paid:"Received",partial:"Partial",unpaid:"Expected"};
+  body.innerHTML=sorted.map(r=>{const t=vatTag(r.vatMode,r.vatRate);return `<tr>
+    <td>${dmy(r.date)}</td><td>${esc(r.source)||'<span class="tag">—</span>'}</td><td>${esc(r.ref)||'<span class="tag">—</span>'}</td>
+    <td>${esc(r.desc)}${r.notes?`<div class="tag">${esc(r.notes)}</div>`:""}</td>
+    <td class="num">${fmt2(rNet(r))}</td><td class="num">${rVat(r)>0?fmt2(rVat(r))+`<div class="tag">${t}</div>`:'<span class="pill novat">—</span>'}</td>
+    <td class="num"><b>${fmt2(rTot(r))}</b></td><td><span class="pill ${r.status}">${sl[r.status]||r.status}</span></td>
+    <td><div class="row-actions"><button class="ghost" data-redit="${r.id}" title="Edit">✎</button></div></td></tr>`;}).join("");
+  foot.innerHTML=`<tr><td colspan="4">Total revenue</td><td class="num">${fmt2(sum(ev.revenue,rNet))}</td><td class="num">${fmt2(eventVatRev(ev))}</td><td class="num">${fmt2(eventRevenue(ev))}</td><td colspan="2"></td></tr>`;
+  body.querySelectorAll("[data-redit]").forEach(b=>b.onclick=()=>openRev(b.dataset.redit));
+}
+function renderBudget(){
+  const ev=curEvent();if(!ev)return;
+  const body=document.getElementById("budBody"),foot=document.getElementById("budFoot");
+  if(!ev.budget.length){body.innerHTML=`<tr><td colspan="4" class="empty">No budget planned for this event — that’s fine. Add lines here only if you want a target to compare actual spend against.</td></tr>`;foot.innerHTML="";return;}
+  const groups={};ev.budget.forEach(b=>{(groups[b.cat]=groups[b.cat]||[]).push(b)});
+  const ordered=CATS.filter(c=>groups[c]).concat(Object.keys(groups).filter(c=>!CATS.includes(c)));
+  let html="";ordered.forEach(cat=>{const ls=groups[cat];
+    html+=`<tr class="cat-row"><td colspan="2">${esc(cat)}</td><td class="num">${fmt(sum(ls,b=>b.amount))}</td><td></td></tr>`;
+    ls.forEach(b=>{html+=`<tr><td></td><td>${esc(b.item)||'<span class="tag">—</span>'}</td><td class="num">${fmt2(b.amount)}</td>
+      <td><div class="row-actions"><button class="ghost" data-bedit="${b.id}" title="Edit">✎</button></div></td></tr>`;});});
+  body.innerHTML=html;
+  foot.innerHTML=`<tr><td colspan="2">Total budget</td><td class="num">${fmt2(eventBudget(ev))}</td><td></td></tr>`;
+  body.querySelectorAll("[data-bedit]").forEach(b=>b.onclick=()=>openBud(b.dataset.bedit));
+}
+
+function renderAll(){if(view==="portfolio")renderPortfolio();else renderEvent();showView();}
+
+// ===== event sub-tabs =====
+document.querySelectorAll("[data-et]").forEach(b=>b.onclick=()=>{eTab=b.dataset.et;
+  document.querySelectorAll("[data-et]").forEach(x=>x.classList.toggle("active",x===b));
+  ["summary","expenses","revenue","budget"].forEach(t=>document.getElementById("et-"+t).classList.toggle("hide",t!==eTab));
+  if(eTab==="summary")renderSummary();});
+
+// ===== modals =====
+const eventModal=document.getElementById("eventModal");let editingEvent=null;
+function openEventModal(ev){editingEvent=ev;document.getElementById("eventModalTitle").textContent=ev?"Edit event":"New event";
+  evName.value=ev?ev.name:"";evDate.value=ev?ev.date:"";evLoc.value=ev?ev.loc:"";evVat.value=ev?(ev.vatRate*100):5;evCost.checked=ev?ev.goal==="cost":false;evNotes.value=ev?ev.notes:"";
+  document.getElementById("evDelete").style.display=ev?"":"none";eventModal.classList.add("open");}
+document.getElementById("evSave").onclick=()=>{const name=evName.value.trim();if(!name){evName.focus();return;}
+  const vr=(+evVat.value||0)/100,goal=evCost.checked?"cost":"profit";
+  if(editingEvent)Object.assign(editingEvent,{name,date:evDate.value,loc:evLoc.value.trim(),vatRate:vr,goal,notes:evNotes.value.trim()});
+  else{const e={id:uid(),name,date:evDate.value,loc:evLoc.value.trim(),vatRate:vr,goal,notes:evNotes.value.trim(),budget:[],expenses:[],revenue:[]};DB.events.push(e);curEventId=e.id;view="event";eTab="summary";}
+  save();eventModal.classList.remove("open");if(view==="event")renderEvent();showView();renderAll();};
+document.getElementById("evDelete").onclick=()=>{if(!editingEvent)return;if(!confirm(`Delete "${editingEvent.name}" and all its data?`))return;
+  DB.events=DB.events.filter(e=>e.id!==editingEvent.id);save();eventModal.classList.remove("open");backToPortfolio();};
+
+const expModal=document.getElementById("expModal");let editingExp=null;
+document.getElementById("xCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+function updXCalc(){const q=+xQty.value||0,u=+xUnit.value||0,base=round2(q*u),mode=xVatMode.value,rate=(+xVatRate.value||0)/100;
+  xVatRate.disabled=(mode==="none");const b=breakdown(base,rate,mode);const lbl=mode==="inclusive"?"Net (ex-VAT)":"Sub-total";
+  document.getElementById("xCalc").innerHTML=`<div><span>${lbl}</span><b>${fmt2(b.net)}</b></div><div><span>VAT${rate&&mode!=='none'?" @ "+pctStr(rate):""}</span><b>${fmt2(b.vat)}</b></div><div style="border-top:1px solid var(--line);padding-top:4px;margin-top:2px"><span>Total ${mode==='inclusive'?'(as entered)':''}</span><b>${fmt2(b.gross)}</b></div>`;}
+["xQty","xUnit","xVatRate"].forEach(id=>document.getElementById(id).addEventListener("input",updXCalc));
+document.getElementById("xVatMode").addEventListener("change",updXCalc);
+function openExp(id){const ev=curEvent();if(!ev)return;editingExp=id?ev.expenses.find(e=>e.id===id):null;const e=editingExp;
+  document.getElementById("expModalTitle").textContent=e?"Edit expense":"Add expense";
+  xDate.value=e?e.date:(ev.date||"");xCat.value=e?e.cat:CATS[1];xVendor.value=e?e.vendor:"";xInv.value=e?e.inv:"";
+  xDesc.value=e?e.desc:"";xQty.value=e?e.qty:1;xUnit.value=e?e.unit:"";xStatus.value=e?e.status:"paid";
+  xVatMode.value=e?e.vatMode:"none";xVatRate.value=e?(e.vatRate*100):((ev.vatRate||0)*100);xNotes.value=e?e.notes:"";
+  document.getElementById("xDelete").style.display=e?"":"none";updXCalc();expModal.classList.add("open");}
+document.getElementById("xSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=xDesc.value.trim();if(!desc){xDesc.focus();return;}
+  const mode=xVatMode.value;const data={date:xDate.value,cat:xCat.value,vendor:xVendor.value.trim(),inv:xInv.value.trim(),desc,qty:+xQty.value||0,unit:+xUnit.value||0,vatMode:mode,vatRate:mode==="none"?0:(+xVatRate.value||0)/100,status:xStatus.value,notes:xNotes.value.trim()};
+  if(editingExp)Object.assign(editingExp,data);else ev.expenses.push(Object.assign({id:uid()},data));
+  save();expModal.classList.remove("open");renderEvent();};
+document.getElementById("xDelete").onclick=()=>{const ev=curEvent();if(!ev||!editingExp)return;ev.expenses=ev.expenses.filter(e=>e.id!==editingExp.id);save();expModal.classList.remove("open");renderEvent();};
+
+const revModal=document.getElementById("revModal");let editingRev=null;
+function updRCalc(){const a=+rAmount.value||0,mode=rVatMode.value,rate=(+rVatRate.value||0)/100;rVatRate.disabled=(mode==="none");
+  const b=breakdown(a,rate,mode);const lbl=mode==="inclusive"?"Net (ex-VAT)":"Amount";
+  document.getElementById("rCalc").innerHTML=`<div><span>${lbl}</span><b>${fmt2(b.net)}</b></div><div><span>VAT${rate&&mode!=='none'?" @ "+pctStr(rate):""}</span><b>${fmt2(b.vat)}</b></div><div style="border-top:1px solid var(--line);padding-top:4px;margin-top:2px"><span>Total ${mode==='inclusive'?'(as entered)':''}</span><b>${fmt2(b.gross)}</b></div>`;}
+["rAmount","rVatRate"].forEach(id=>document.getElementById(id).addEventListener("input",updRCalc));
+document.getElementById("rVatMode").addEventListener("change",updRCalc);
+function openRev(id){const ev=curEvent();if(!ev)return;editingRev=id?ev.revenue.find(r=>r.id===id):null;const r=editingRev;
+  document.getElementById("revModalTitle").textContent=r?"Edit revenue":"Add revenue";
+  rDate.value=r?r.date:(ev.date||"");rSource.value=r?r.source:"";rRef.value=r?r.ref:"";rDesc.value=r?r.desc:"";
+  rAmount.value=r?r.amount:"";rVatMode.value=r?r.vatMode:"inclusive";rVatRate.value=r?(r.vatRate*100):((ev.vatRate||0)*100);
+  rStatus.value=r?r.status:"paid";rNotes.value=r?r.notes:"";document.getElementById("rDelete").style.display=r?"":"none";updRCalc();revModal.classList.add("open");}
+document.getElementById("rSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=rDesc.value.trim();if(!desc){rDesc.focus();return;}
+  const mode=rVatMode.value;const data={date:rDate.value,source:rSource.value.trim(),ref:rRef.value.trim(),desc,amount:+rAmount.value||0,vatMode:mode,vatRate:mode==="none"?0:(+rVatRate.value||0)/100,status:rStatus.value,notes:rNotes.value.trim()};
+  if(editingRev)Object.assign(editingRev,data);else ev.revenue.push(Object.assign({id:uid()},data));
+  save();revModal.classList.remove("open");renderEvent();};
+document.getElementById("rDelete").onclick=()=>{const ev=curEvent();if(!ev||!editingRev)return;ev.revenue=ev.revenue.filter(r=>r.id!==editingRev.id);save();revModal.classList.remove("open");renderEvent();};
+
+const budModal=document.getElementById("budModal");let editingBud=null;
+document.getElementById("bCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+function openBud(id){const ev=curEvent();if(!ev)return;editingBud=id?ev.budget.find(b=>b.id===id):null;const b=editingBud;
+  document.getElementById("budModalTitle").textContent=b?"Edit budget line":"Add budget line";
+  bCat.value=b?b.cat:CATS[1];bItem.value=b?b.item:"";bAmount.value=b?b.amount:"";
+  document.getElementById("bDelete").style.display=b?"":"none";budModal.classList.add("open");}
+document.getElementById("bSave").onclick=()=>{const ev=curEvent();if(!ev)return;const data={cat:bCat.value,item:bItem.value.trim(),amount:+bAmount.value||0};
+  if(editingBud)Object.assign(editingBud,data);else ev.budget.push(Object.assign({id:uid()},data));save();budModal.classList.remove("open");renderEvent();};
+document.getElementById("bDelete").onclick=()=>{const ev=curEvent();if(!ev||!editingBud)return;ev.budget=ev.budget.filter(b=>b.id!==editingBud.id);save();budModal.classList.remove("open");renderEvent();};
+
+// ===== wiring =====
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.querySelectorAll(".modal-bg").forEach(m=>m.classList.remove("open")));
+document.querySelectorAll(".modal-bg").forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove("open");});
+document.getElementById("newEventBtn").onclick=()=>openEventModal(null);
+document.getElementById("eEdit").onclick=()=>openEventModal(curEvent());
+document.getElementById("backBtn").onclick=backToPortfolio;
+document.getElementById("addExpBtn").onclick=()=>openExp(null);
+document.getElementById("addRevBtn").onclick=()=>openRev(null);
+document.getElementById("addBudBtn").onclick=()=>openBud(null);
+document.getElementById("vatRate").onchange=e=>{const ev=curEvent();if(!ev)return;ev.vatRate=(+e.target.value||0)/100;save();renderEvent();};
+document.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{pMode=b.dataset.p;renderPortfolio();});
+document.getElementById("pPeriodSel").onchange=e=>{pPeriod=e.target.value;renderPortfolio();};
+document.querySelectorAll("th[data-sort]").forEach(th=>th.onclick=()=>{const k=th.dataset.sort;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=(k==="name")?1:-1;}renderPortfolio();});
+document.getElementById("pExport").onclick=()=>exportCSV("portfolio");
+document.getElementById("exportExpBtn").onclick=()=>exportCSV("expenses");
+document.getElementById("exportRevBtn").onclick=()=>exportCSV("revenue");
+document.getElementById("exportCmpBtn").onclick=()=>exportCSV("comparison");
+
+function dl(name,rows){const csv=rows.map(r=>r.map(c=>`"${String(c==null?"":c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
+function exportCSV(which){const ev=curEvent();
+  if(which==="portfolio"){const rows=[["Event","Date","Location","Type","Revenue (AED)","Expenses (AED)","Net (AED)","Unpaid (AED)"]];
+    portfolioEvents().forEach(e=>{const r=eventRevenue(e),x=eventActual(e);rows.push([e.name,e.date,e.loc,e.goal==="cost"?"Not for profit":"Revenue event",r.toFixed(2),x.toFixed(2),(r-x).toFixed(2),eventOutstanding(e).toFixed(2)]);});
+    dl(`events-${periodLabel().replace(/\s+/g,"-")}.csv`,rows);
+  }else if(which==="expenses"){if(!ev)return;const rows=[["Date","Vendor","Invoice #","Category","Description","Qty","Unit Price (AED)","Net (AED)","VAT mode","VAT rate","VAT (AED)","Total (AED)","Status"]];
+    ev.expenses.forEach(e=>rows.push([e.date,e.vendor,e.inv,e.cat,e.desc,e.qty,e.unit,subtotal(e).toFixed(2),e.vatMode,pctStr(e.vatRate),vatOf(e).toFixed(2),totalOf(e).toFixed(2),e.status]));
+    dl(`expenses-${ev.name}.csv`,rows);
+  }else if(which==="revenue"){if(!ev)return;const rows=[["Date","Source","Reference","Description","Net (AED)","VAT mode","VAT rate","VAT (AED)","Total gross (AED)","Status"]];
+    ev.revenue.forEach(r=>rows.push([r.date,r.source,r.ref,r.desc,rNet(r).toFixed(2),r.vatMode,pctStr(r.vatRate),rVat(r).toFixed(2),rTot(r).toFixed(2),r.status]));
+    dl(`revenue-${ev.name}.csv`,rows);
+  }else{if(!ev)return;const rows=[["Category","Budget (AED)","Actual incl. VAT (AED)","Variance (AED)","% used","Payment status"]];
+    catAgg(ev).forEach(([c,v])=>rows.push([c,v.budget.toFixed(2),v.actual.toFixed(2),(v.budget-v.actual).toFixed(2),v.budget?Math.round(v.actual/v.budget*100)+"%":"",v.status]));
+    dl(`budget-vs-actual-${ev.name}.csv`,rows);}
+}
+
+showView();renderPortfolio();cloudInit();
+</script>
+</body>
+</html>
