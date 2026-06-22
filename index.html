@@ -150,7 +150,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <button class="back" id="backBtn">← All events</button>
     <div class="topbar">
       <div><h1 id="eName"></h1><div class="sub" id="eMeta"></div></div>
-      <div class="controls"><button id="eEdit">⚙ Edit event</button></div>
+      <div class="controls"><button id="eAddExp" class="primary">+ Add expense</button><button id="eAddRev">+ Add revenue</button><button id="eEdit">⚙ Edit event</button></div>
     </div>
     <div id="eCostBanner" class="note-banner hide"></div>
     <div class="cards" id="eKpis"></div>
@@ -452,9 +452,7 @@ const barLabel={id:"barLabel",afterDatasetsDraw(chart){
 // ===== views =====
 function showView(){document.getElementById("portfolio").classList.toggle("hide",view!=="portfolio");
   document.getElementById("eventView").classList.toggle("hide",view!=="event");}
-function openEvent(id){view="event";curEventId=id;eTab="summary";document.querySelectorAll("[data-et]").forEach(b=>b.classList.toggle("active",b.dataset.et==="summary"));
-  ["summary","expenses","revenue","budget"].forEach(t=>document.getElementById("et-"+t).classList.toggle("hide",t!=="summary"));
-  showView();renderEvent();window.scrollTo(0,0);}
+function openEvent(id){view="event";curEventId=id;showView();renderEvent();setEventTab("summary");window.scrollTo(0,0);}
 function backToPortfolio(){view="portfolio";showView();renderPortfolio();window.scrollTo(0,0);}
 
 // ===== PORTFOLIO =====
@@ -650,10 +648,11 @@ function renderBudget(){
 function renderAll(){if(view==="portfolio")renderPortfolio();else renderEvent();showView();}
 
 // ===== event sub-tabs =====
-document.querySelectorAll("[data-et]").forEach(b=>b.onclick=()=>{eTab=b.dataset.et;
-  document.querySelectorAll("[data-et]").forEach(x=>x.classList.toggle("active",x===b));
-  ["summary","expenses","revenue","budget"].forEach(t=>document.getElementById("et-"+t).classList.toggle("hide",t!==eTab));
-  if(eTab==="summary")renderSummary();});
+function setEventTab(t){eTab=t;
+  document.querySelectorAll("[data-et]").forEach(x=>x.classList.toggle("active",x.dataset.et===t));
+  ["summary","expenses","revenue","budget"].forEach(s=>document.getElementById("et-"+s).classList.toggle("hide",s!==t));
+  if(t==="summary")renderSummary();}
+document.querySelectorAll("[data-et]").forEach(b=>b.onclick=()=>setEventTab(b.dataset.et));
 
 // ===== modals =====
 const eventModal=document.getElementById("eventModal");let editingEvent=null;
@@ -684,7 +683,7 @@ function openExp(id){const ev=curEvent();if(!ev)return;editingExp=id?ev.expenses
 document.getElementById("xSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=xDesc.value.trim()||xCat.value;
   const mode=xVatMode.value;const data={date:xDate.value,cat:xCat.value,vendor:xVendor.value.trim(),inv:xInv.value.trim(),desc,qty:+xQty.value||0,unit:+xUnit.value||0,vatMode:mode,vatRate:mode==="none"?0:(+xVatRate.value||0)/100,status:xStatus.value,notes:xNotes.value.trim()};
   if(editingExp)Object.assign(editingExp,data);else ev.expenses.push(Object.assign({id:uid()},data));
-  save();expModal.classList.remove("open");renderEvent();};
+  save();expModal.classList.remove("open");renderEvent();setEventTab("expenses");};
 document.getElementById("xDelete").onclick=()=>{const ev=curEvent();if(!ev||!editingExp)return;ev.expenses=ev.expenses.filter(e=>e.id!==editingExp.id);save();expModal.classList.remove("open");renderEvent();};
 
 const revModal=document.getElementById("revModal");let editingRev=null;
@@ -701,7 +700,7 @@ function openRev(id){const ev=curEvent();if(!ev)return;editingRev=id?ev.revenue.
 document.getElementById("rSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=rDesc.value.trim()||rSource.value.trim()||"Income";
   const mode=rVatMode.value;const data={date:rDate.value,source:rSource.value.trim(),ref:rRef.value.trim(),desc,amount:+rAmount.value||0,vatMode:mode,vatRate:mode==="none"?0:(+rVatRate.value||0)/100,status:rStatus.value,notes:rNotes.value.trim()};
   if(editingRev)Object.assign(editingRev,data);else ev.revenue.push(Object.assign({id:uid()},data));
-  save();revModal.classList.remove("open");renderEvent();};
+  save();revModal.classList.remove("open");renderEvent();setEventTab("revenue");};
 document.getElementById("rDelete").onclick=()=>{const ev=curEvent();if(!ev||!editingRev)return;ev.revenue=ev.revenue.filter(r=>r.id!==editingRev.id);save();revModal.classList.remove("open");renderEvent();};
 
 const budModal=document.getElementById("budModal");let editingBud=null;
@@ -719,6 +718,8 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.quer
 document.querySelectorAll(".modal-bg").forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove("open");});
 document.getElementById("newEventBtn").onclick=()=>openEventModal(null);
 document.getElementById("eEdit").onclick=()=>openEventModal(curEvent());
+document.getElementById("eAddExp").onclick=()=>openExp(null);
+document.getElementById("eAddRev").onclick=()=>openRev(null);
 document.getElementById("backBtn").onclick=backToPortfolio;
 document.getElementById("addExpBtn").onclick=()=>openExp(null);
 document.getElementById("addRevBtn").onclick=()=>openRev(null);
