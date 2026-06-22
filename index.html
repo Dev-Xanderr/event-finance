@@ -681,7 +681,7 @@ function openExp(id){const ev=curEvent();if(!ev)return;editingExp=id?ev.expenses
   xDesc.value=e?e.desc:"";xQty.value=e?e.qty:1;xUnit.value=e?e.unit:"";xStatus.value=e?e.status:"paid";
   xVatMode.value=e?e.vatMode:"none";xVatRate.value=e?(e.vatRate*100):((ev.vatRate||0)*100);xNotes.value=e?e.notes:"";
   document.getElementById("xDelete").style.display=e?"":"none";updXCalc();expModal.classList.add("open");}
-document.getElementById("xSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=xDesc.value.trim();if(!desc){xDesc.focus();return;}
+document.getElementById("xSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=xDesc.value.trim()||xCat.value;
   const mode=xVatMode.value;const data={date:xDate.value,cat:xCat.value,vendor:xVendor.value.trim(),inv:xInv.value.trim(),desc,qty:+xQty.value||0,unit:+xUnit.value||0,vatMode:mode,vatRate:mode==="none"?0:(+xVatRate.value||0)/100,status:xStatus.value,notes:xNotes.value.trim()};
   if(editingExp)Object.assign(editingExp,data);else ev.expenses.push(Object.assign({id:uid()},data));
   save();expModal.classList.remove("open");renderEvent();};
@@ -698,7 +698,7 @@ function openRev(id){const ev=curEvent();if(!ev)return;editingRev=id?ev.revenue.
   rDate.value=r?r.date:(ev.date||"");rSource.value=r?r.source:"";rRef.value=r?r.ref:"";rDesc.value=r?r.desc:"";
   rAmount.value=r?r.amount:"";rVatMode.value=r?r.vatMode:"inclusive";rVatRate.value=r?(r.vatRate*100):((ev.vatRate||0)*100);
   rStatus.value=r?r.status:"paid";rNotes.value=r?r.notes:"";document.getElementById("rDelete").style.display=r?"":"none";updRCalc();revModal.classList.add("open");}
-document.getElementById("rSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=rDesc.value.trim();if(!desc){rDesc.focus();return;}
+document.getElementById("rSave").onclick=()=>{const ev=curEvent();if(!ev)return;const desc=rDesc.value.trim()||rSource.value.trim()||"Income";
   const mode=rVatMode.value;const data={date:rDate.value,source:rSource.value.trim(),ref:rRef.value.trim(),desc,amount:+rAmount.value||0,vatMode:mode,vatRate:mode==="none"?0:(+rVatRate.value||0)/100,status:rStatus.value,notes:rNotes.value.trim()};
   if(editingRev)Object.assign(editingRev,data);else ev.revenue.push(Object.assign({id:uid()},data));
   save();revModal.classList.remove("open");renderEvent();};
